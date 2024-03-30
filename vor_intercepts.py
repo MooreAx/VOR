@@ -50,8 +50,12 @@ def draw_position(radial, distance, heading):
     pos = (x,y)
     pygame.draw.circle(screen, red, xy(pos), radius = 5, width = 0) 
 
-def draw_text_box(rect, text):
-    pygame.draw.rect(screen, grey, rect)
+def draw_text_box(rect, text, active):
+    if active:
+        col = red
+    else: grey
+        col = 
+    pygame.draw.rect(screen, col, rect)
     pygame.draw.rect(screen, black, rect, 2)  # Draw the border of the text box
     img = font.render(text, True, black)
     text_rect = img.get_rect(center = rect.center)
@@ -285,7 +289,7 @@ def take_screenshot():
 
 
 def main():
-    global radial, Radialtxt
+    global radial, Radialtxt, Radial_active
     clock = pygame.time.Clock()
     running = True
 
