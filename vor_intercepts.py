@@ -17,8 +17,9 @@ O = (Ox, Oy)
 arrow_ht = 20
 arrow_angle = 30
 RADIAL = 130 #aircraft position
-INTERCEPTCOURSE = 280 #intercept course
+COURSE = 280 #intercept course
 ANGLE = 40 #intercept angle
+TRACK = 0 #place holder
 myFont = pygame.font.SysFont("Consolas", 15)
 
 #coordinate transformations from top left with y down to origin with y up
@@ -27,17 +28,19 @@ def y(y): return(Oy - y)
 def xy(xy): return((x(xy[0]),y(xy[1])))
 
 Radialtxt = str(RADIAL)
-Coursetxt = str(INTERCEPTCOURSE)
+Coursetxt = str(COURSE)
 Angletxt = str(ANGLE)
+Tracktxt = str(TRACK)
 
 screen = pygame.display.set_mode((Width, Height))
 pygame.display.set_caption("Radio Navigation Intercepts")
 
 #define input rects
 w, h = 50, 30
-radial_rect = pygame.Rect(50, y(+40) -h/2, w, h)
-course_rect = pygame.Rect(50, y(0) -h/2, w, h)
-angle_rect = pygame.Rect(50, y(-40) -h/2, w, h)
+radial_rect = pygame.Rect(50, y(+60) -h/2, w, h)
+course_rect = pygame.Rect(50, y(+20) -h/2, w, h)
+angle_rect = pygame.Rect(50, y(-20) -h/2, w, h)
+track_rect = pygame.Rect(50, y(-60) -h/2, w, h)
 
 # Colors
 white = pygame.Color("white")
@@ -216,6 +219,7 @@ def extend_ab(a, b, extralength):
     return(new_end)
 
 def get_intercept(R, theta, course, intercept=90):
+    global TRACK
     #need to project (R, theta) [a] onto course [b], i.e., a onto b
     a = (xcomp(R, theta), ycomp(R, theta))
     b = (xcomp(1, course), ycomp(1, course))
@@ -239,10 +243,10 @@ def get_intercept(R, theta, course, intercept=90):
 
     if sp <= 0:
         hand = "right" #antiparallel
-        int_course = course + intercept
+        TRACK = course + intercept
     if sp > 0:
         hand = "left" #parallel
-        int_course = course - intercept
+        TRACK = course - intercept
 
 
     # DETERMINE INTERCEPTION PT
@@ -254,8 +258,8 @@ def get_intercept(R, theta, course, intercept=90):
     #line 2 (intercept) - use 2 pts
     x1 = a[0]
     y1 = a[1]
-    x2 = x1 + xcomp(10, int_course)
-    y2 = y1 + ycomp(10, int_course)
+    x2 = x1 + xcomp(10, TRACK)
+    y2 = y1 + ycomp(10, TRACK)
 
     m2 = (y2-y1)/(x2-x1)
     b2 = y1 - m2*x1
@@ -280,8 +284,8 @@ def get_intercept(R, theta, course, intercept=90):
     p2 = (+dx, -arrow_ht) #normal coords
 
     #rotate
-    p1 = rotate(p1, (0,0), int_course)
-    p2 = rotate(p2, (0,0), int_course)
+    p1 = rotate(p1, (0,0), TRACK)
+    p2 = rotate(p2, (0,0), TRACK)
 
     #translate
     p1 = (p1[0] + intercept_ext[0], p1[1] + intercept_ext[1])
@@ -291,7 +295,7 @@ def get_intercept(R, theta, course, intercept=90):
     pygame.draw.polygon(screen, black, [xy(p1), xy(p2), xy(intercept_ext)])
 
     #draw label
-    text = formatnum(int_course) + " INT"
+    text = formatnum(mod360(TRACK)) + " TRK"
     middle = xy(extend_ab(a, intercept_ext, 20))
     draw_text(text, myFont, black, middle)
 
@@ -333,8 +337,9 @@ Angle_active = False
 
 def gameloop():
     global RADIAL, Radialtxt, Radial_active
-    global INTERCEPTCOURSE, Coursetxt, Course_active
+    global COURSE, Coursetxt, Course_active
     global ANGLE, Angletxt, Angle_active
+    global TRACK, Tracktxt
 
     clock = pygame.time.Clock()
     running = True
@@ -405,8 +410,8 @@ def gameloop():
 
         if not Course_active:
             #update course
-            INTERCEPTCOURSE = get_radial_from_text(Coursetxt)
-            Coursetxt = str(INTERCEPTCOURSE)
+            COURSE = get_radial_from_text(Coursetxt)
+            Coursetxt = str(COURSE)
 
         if not Angle_active:
             #update angle
@@ -416,6 +421,7 @@ def gameloop():
         Radialtxt = process_radial_text(Radialtxt)
         Coursetxt = process_radial_text(Coursetxt)
         Angletxt = process_radial_text(Angletxt)
+        Tracktxt = process_radial_text(str(mod360(TRACK)))
 
 
         # Clear the screen
@@ -453,17 +459,18 @@ def gameloop():
         draw_arrow(RADIAL + 180, line_len, False, False, green, "", 1)
 
         #inbound / outbound course
-        draw_arrow(INTERCEPTCOURSE + 180, arrow_len, True, False, blue, "IN", 3)
-        draw_arrow(INTERCEPTCOURSE + 180, line_len, False, False, blue, "", 1)
-        draw_arrow(INTERCEPTCOURSE, arrow_len, False, True, blue, "OUT", 3)
-        draw_arrow(INTERCEPTCOURSE, line_len, False, False, blue, "", 1)
+        draw_arrow(COURSE + 180, arrow_len, True, False, blue, "IN", 3)
+        draw_arrow(COURSE + 180, line_len, False, False, blue, "", 1)
+        draw_arrow(COURSE, arrow_len, False, True, blue, "OUT", 3)
+        draw_arrow(COURSE, line_len, False, False, blue, "", 1)
 
         draw_position(RADIAL, 150, 20)
-        get_intercept(150, RADIAL, INTERCEPTCOURSE, ANGLE)
+        get_intercept(150, RADIAL, COURSE, ANGLE)
 
         draw_input_box(radial_rect, Radialtxt, Radial_active, "BFS", red)
         draw_input_box(course_rect, Coursetxt, Course_active, "CRS", blue)
         draw_input_box(angle_rect, Angletxt, Angle_active, "ANG", black)
+        draw_input_box(track_rect, Tracktxt, False, "TRK", black)
 
 
         # Update the display
