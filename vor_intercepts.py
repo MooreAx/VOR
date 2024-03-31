@@ -8,8 +8,8 @@ import re
 pygame.init()
 
 # Set up the screen and define origin
-Width, Height = 700, 700
-Ox, Oy = Width/2, Height/2
+Width, Height = 800, 600
+Ox, Oy = 450, Height/2
 O = (Ox, Oy)
 
 
@@ -17,19 +17,27 @@ O = (Ox, Oy)
 arrow_ht = 20
 arrow_angle = 30
 RADIAL = 130 #aircraft position
-INTERCEPTCOURSE = 280 #desired intercept course
+INTERCEPTCOURSE = 280 #intercept course
+ANGLE = 40 #intercept angle
 myFont = pygame.font.SysFont("Arial", 15)
+
+#coordinate transformations from top left with y down to origin with y up
+def x(x): return(Ox + x)
+def y(y): return(Oy - y)
+def xy(xy): return((x(xy[0]),y(xy[1])))
 
 Radialtxt = str(RADIAL)
 Coursetxt = str(INTERCEPTCOURSE)
+Angletxt = str(ANGLE)
 
 screen = pygame.display.set_mode((Width, Height))
 pygame.display.set_caption("Radio Navigation Intercepts")
 
 #define input rects
 w, h = 50, 30
-radial_rect = pygame.Rect(50, 10, w, h)
-course_rect = pygame.Rect(50, 50, w, h)
+radial_rect = pygame.Rect(50, y(+40) -h/2, w, h)
+course_rect = pygame.Rect(50, y(0) -h/2, w, h)
+angle_rect = pygame.Rect(50, y(-40) -h/2, w, h)
 
 # Colors
 white = pygame.Color("white")
@@ -45,7 +53,7 @@ lightyellow = pygame.Color(255, 255, 153)
 
 def draw_position(radial, distance, heading):
     pos = (xcomp(distance, radial), ycomp(distance, radial))
-    pygame.draw.circle(screen, red, xy(pos), radius = 5, width = 2) 
+    pygame.draw.circle(screen, red, xy(pos), radius = 10, width = 2)
 
 def draw_input_box(rect, text, active, label, textcol):
     if active:
@@ -65,11 +73,6 @@ def draw_input_box(rect, text, active, label, textcol):
 
     draw_text(label, myFont, textcol, pos_center_offset)
 
-
-#coordinate transformations from top left with y down to origin with y up
-def x(x): return(Ox + x)
-def y(y): return(Oy - y)
-def xy(xy): return((x(xy[0]),y(xy[1])))
 
 def xcomp(r, theta):
     #x component of polar coords
@@ -266,7 +269,7 @@ def get_intercept(R, theta, course, intercept=90):
     intercept_ext = extend_ab(a, intercept, 100)
 
     #plot intercept point
-    pygame.draw.circle(screen, blue, xy(intercept), radius = 5, width = 2)
+    pygame.draw.circle(screen, blue, xy(intercept), radius = 10, width = 2)
     pygame.draw.line(screen, black, xy(a), xy(intercept_ext), width = 3)
 
     #draw arrow head
@@ -326,9 +329,13 @@ def get_radial_from_text(s):
 
 Radial_active = False
 Course_active = False
+Angle_active = False
 
 def gameloop():
-    global RADIAL, Radialtxt, Radial_active, INTERCEPTCOURSE, Coursetxt, Course_active
+    global RADIAL, Radialtxt, Radial_active
+    global INTERCEPTCOURSE, Coursetxt, Course_active
+    global ANGLE, Angletxt, Angle_active
+
     clock = pygame.time.Clock()
     running = True
 
@@ -344,14 +351,19 @@ def gameloop():
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 Radial_active = False
                 Course_active = False
+                Angle_active = False
 
                 mos_pos = pygame.mouse.get_pos()
+
                 if radial_rect.collidepoint(mos_pos):
                     print("radial click")
                     Radial_active = True
                 elif course_rect.collidepoint(mos_pos):
                     print("course click")
                     Course_active = True
+                elif angle_rect.collidepoint(mos_pos):
+                    print("angle click")
+                    Angle_active = True
 
             #need to make this a function
             if event.type == pygame.KEYDOWN:
@@ -374,7 +386,17 @@ def gameloop():
                         if len(Coursetxt) == 3:
                             Coursetxt = event.unicode
                         else:
-                            Coursetxt += event.unicode                    
+                            Coursetxt += event.unicode     
+                elif Angle_active:
+                    if event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
+                        Angle_active = False
+                    elif event.key == pygame.K_BACKSPACE:
+                        Angletxt = ""
+                    else:
+                        if len(Angletxt) == 2:
+                            Angletxt = event.unicode
+                        else:
+                            Angletxt += event.unicode               
 
         if not Radial_active:
             #update radial
@@ -386,8 +408,14 @@ def gameloop():
             INTERCEPTCOURSE = get_radial_from_text(Coursetxt)
             Coursetxt = str(INTERCEPTCOURSE)
 
+        if not Angle_active:
+            #update angle
+            ANGLE = get_radial_from_text(Angletxt)
+            Angletxt = str(ANGLE)
+
         Radialtxt = process_radial_text(Radialtxt)
         Coursetxt = process_radial_text(Coursetxt)
+        Angletxt = process_radial_text(Angletxt)
 
 
         # Clear the screen
@@ -431,10 +459,11 @@ def gameloop():
         draw_arrow(INTERCEPTCOURSE, line_len, False, False, blue, "", 1)
 
         draw_position(RADIAL, 150, 20)
-        get_intercept(150, RADIAL, INTERCEPTCOURSE, 40)
+        get_intercept(150, RADIAL, INTERCEPTCOURSE, ANGLE)
 
         draw_input_box(radial_rect, Radialtxt, Radial_active, "BFS", red)
-        draw_input_box(course_rect, Coursetxt, Course_active, "INT", blue)
+        draw_input_box(course_rect, Coursetxt, Course_active, "CRS", blue)
+        draw_input_box(angle_rect, Angletxt, Angle_active, "ANG", black)
 
 
         # Update the display
