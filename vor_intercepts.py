@@ -6,7 +6,7 @@ import os
 # Initialize Pygame
 pygame.init()
 
-# Set up the screen
+# Set up the screen and define origin
 Width, Height = 600, 600
 Ox, Oy = Width/2, Height/2
 O = (Ox, Oy)
@@ -15,18 +15,18 @@ O = (Ox, Oy)
 #Initial constants
 arrow_ht = 20
 arrow_angle = 30
-radial = 130 #aircraft position
+RADIAL = 130 #aircraft position
 INTERCEPTCOURSE = 280 #desired intercept course
 myFont = pygame.font.SysFont("Arial", 15)
 
-#Radialtxt = str(radial)
+#Radialtxt = str(RADIAL)
 
 screen = pygame.display.set_mode((Width, Height))
 pygame.display.set_caption("Radio Navigation Intercepts")
 
 #define input rects
 w, h = 100, 40
-Radial_rect = pygame.Rect(50, 50, w, h)
+radial_rect = pygame.Rect(50, 50, w, h)
 
 # Colors
 white = pygame.Color("white")
@@ -39,11 +39,6 @@ cyan = pygame.Color("cyan")
 magenta = pygame.Color("magenta")
 grey = pygame.Color(224, 224, 224)
 
-
-# Fonts
-font = pygame.font.SysFont(None, 32)
-
-
 def draw_position(radial, distance, heading):
     x = distance * math.sin(math.radians(radial))
     y = distance * math.cos(math.radians(radial))
@@ -53,8 +48,8 @@ def draw_position(radial, distance, heading):
 def draw_text_box(rect, text, active):
     if active:
         col = red
-    else: grey
-        col = 
+    else:
+        col = grey
     pygame.draw.rect(screen, col, rect)
     pygame.draw.rect(screen, black, rect, 2)  # Draw the border of the text box
     img = font.render(text, True, black)
@@ -66,6 +61,14 @@ def x(x): return(Ox + x)
 def y(y): return(Oy - y)
 def xy(xy): return((x(xy[0]),y(xy[1])))
 
+def xcomp(r, theta):
+    #x component of polar coords
+    return(r*(math.sin(math.radians(theta))))
+
+def ycomp(r, theta):
+    #y component of polar coords
+    return(r*(math.cos(math.radians(theta))))
+
 def draw_compass_card():
     # Draw a basic compass card
     r = 200
@@ -73,6 +76,7 @@ def draw_compass_card():
     pygame.draw.line(screen, black, (x(-r), y(0)), (x(r), y(0)), width = 2)  # E/W
 
 def rotate(point, origin, rotation):
+    #rotation in degrees
     px = point[0]
     py = point[1]
     ox = origin[0]
@@ -80,12 +84,12 @@ def rotate(point, origin, rotation):
 
     #change to polar coords:
     r = math.sqrt((px-ox)**2+(py-oy)**2)
-    theta1 = math.atan2(px-ox, py-oy)
+    theta1 = math.degrees(math.atan2(px-ox, py-oy))
 
     theta2 = theta1 + rotation
 
-    px2 = ox + r*math.sin(theta2)
-    py2 = oy + r*math.cos(theta2)
+    px2 = ox + xcomp(r, theta2)
+    py2 = oy + ycomp(r, theta2)
 
     point = (px2, py2)
     return(point)
@@ -99,8 +103,8 @@ def draw_text(text, font, colour, pt):
 def draw_arrow(theta, length, inbound=False, outbound=False, colour=black, label=""):
     #draws an arrow from the origin
 
-    tipx = length*(math.sin(math.radians(theta)))
-    tipy = length*(math.cos(math.radians(theta)))
+    tipx = xcomp(length, theta)
+    tipy = ycomp(length, theta)
     tip = (tipx, tipy)
 
     #draw line (convert to screen coordinates)
@@ -119,8 +123,8 @@ def draw_arrow(theta, length, inbound=False, outbound=False, colour=black, label
         p2 = (+dx, -arrow_ht) #normal coords
 
         #rotate
-        p1 = rotate(p1, (0,0), math.radians(theta))
-        p2 = rotate(p2, (0,0), math.radians(theta))
+        p1 = rotate(p1, (0,0), theta)
+        p2 = rotate(p2, (0,0), theta)
 
         #translate
         p1 = (p1[0] + tip[0], p1[1] + tip[1])
@@ -136,9 +140,9 @@ def draw_arrow(theta, length, inbound=False, outbound=False, colour=black, label
         p3 = (0, -arrow_ht)
 
         #rotate
-        p1 = rotate(p1, (0,0), math.radians(theta))
-        p2 = rotate(p2, (0,0), math.radians(theta))
-        p3 = rotate(p3, (0,0), math.radians(theta))
+        p1 = rotate(p1, (0,0), theta)
+        p2 = rotate(p2, (0,0), theta)
+        p3 = rotate(p3, (0,0), theta)
 
         #translate
         p1 = (p1[0] + tip[0], p1[1] + tip[1])
@@ -185,19 +189,19 @@ def a_perp_b(a, b):
     aperpb = (x,y)
     return(aperpb)
 
-def extend_ab(a, b, extra):
-    #extend vector a --> b extra length beyond b
+def extend_ab(a, b, extralength):
+    #extend vector a --> b extralength beyond b
     ab = (b[0] - a[0], b[1] - a[1])
     ab_hat = unit_vector(ab)
     ab_len = norm(ab)
-    ab_longer = ((ab_len + extra) * ab_hat[0], (ab_len + extra) * ab_hat[1])
+    ab_longer = ((ab_len + extralength) * ab_hat[0], (ab_len + extralength) * ab_hat[1])
     new_end = (a[0] + ab_longer[0], a[1] + ab_longer[1])
     return(new_end)
 
 def get_intercept(R, theta, course, intercept=90):
     #need to project (R, theta) [a] onto course [b], i.e., a onto b
-    a = (R * math.sin(math.radians(theta)), R * math.cos(math.radians(theta)))
-    b = (math.sin(math.radians(course)), math.cos(math.radians(course)))
+    a = (xcomp(R, theta), ycomp(R, theta))
+    b = (xcomp(1, course), ycomp(1, course))
 
     #parallel component
     projection = a_onto_b(a, b)
@@ -207,8 +211,8 @@ def get_intercept(R, theta, course, intercept=90):
     #perpendicular component
     rejection = a_perp_b(a, b)
 
-    #define a vector that is 90 degrees to the right of course
-    right_hat = (math.sin(math.radians(course+90)), math.cos(math.radians(course+90)))
+    #define a unit vector that is 90 degrees to the right of course
+    right_hat = (xcomp(1, course+90), ycomp(1, course+90))
 
     #if the rejection is parallel to right_hat, intercept left
     #if the rejection is antiparallel to right_hat, intercept right
@@ -224,7 +228,7 @@ def get_intercept(R, theta, course, intercept=90):
         int_course = course - intercept
 
 
-    # DETERMINE INTERCEPT PT
+    # DETERMINE INTERCEPTION PT
     # need to handle infinite slopes using math.inf
     #line 1 (course)
     b1 = 0
@@ -233,8 +237,8 @@ def get_intercept(R, theta, course, intercept=90):
     #line 2 (intercept) - use 2 pts
     x1 = a[0]
     y1 = a[1]
-    x2 = x1 + 10 * math.sin(math.radians(int_course))
-    y2 = y1 + 10 * math.cos(math.radians(int_course))
+    x2 = x1 + xcomp(10, int_course)
+    y2 = y1 + ycomp(10, int_course)
 
     m2 = (y2-y1)/(x2-x1)
     b2 = y1 - m2*x1
@@ -245,11 +249,11 @@ def get_intercept(R, theta, course, intercept=90):
     intercept = (intercept_x, intercept_y)
 
     #extend intercept course beyond the intercept point for plotting purposes
-    intercept_end = extend_ab(a, intercept, 100)
+    intercept_ext = extend_ab(a, intercept, 100)
 
     #plot intercept point
     pygame.draw.circle(screen, blue, xy(intercept), radius = 5, width = 0)
-    pygame.draw.line(screen, black, xy(a), xy(intercept_end), width = 3)
+    pygame.draw.line(screen, black, xy(a), xy(intercept_ext), width = 3)
 
     #draw arrow head
     angle = math.radians(arrow_angle)  #opening angle
@@ -259,19 +263,19 @@ def get_intercept(R, theta, course, intercept=90):
     p2 = (+dx, -arrow_ht) #normal coords
 
     #rotate
-    p1 = rotate(p1, (0,0), math.radians(int_course))
-    p2 = rotate(p2, (0,0), math.radians(int_course))
+    p1 = rotate(p1, (0,0), int_course)
+    p2 = rotate(p2, (0,0), int_course)
 
     #translate
-    p1 = (p1[0] + intercept_end[0], p1[1] + intercept_end[1])
-    p2 = (p2[0] + intercept_end[0], p2[1] + intercept_end[1])
+    p1 = (p1[0] + intercept_ext[0], p1[1] + intercept_ext[1])
+    p2 = (p2[0] + intercept_ext[0], p2[1] + intercept_ext[1])
 
     # Draw the arrowhead (convert to screen coordinates)
-    pygame.draw.polygon(screen, black, [xy(p1), xy(p2), xy(intercept_end)])
+    pygame.draw.polygon(screen, black, [xy(p1), xy(p2), xy(intercept_ext)])
 
     #draw label
     text = formatnum(int_course) + " INT"
-    middle = xy(extend_ab(a, intercept_end, 20))
+    middle = xy(extend_ab(a, intercept_ext, 20))
     draw_text(text, myFont, black, middle)
 
 
@@ -289,7 +293,7 @@ def take_screenshot():
 
 
 def main():
-    global radial, Radialtxt, Radial_active
+    global RADIAL, Radialtxt, Radial_active
     clock = pygame.time.Clock()
     running = True
 
@@ -306,7 +310,7 @@ def main():
                 Radial_active = False
 
                 mos_pos = pygame.mouse.get_pos()
-                if Radial_rect.collidepoint(mos_pos):
+                if radial_rect.collidepoint(mos_pos):
                     print("radial click")
                     Radial_active = True
 
@@ -319,7 +323,7 @@ def main():
                     else:
                         Radialtxt += event.unicode
 
-                    radial = int(Radialtxt)
+                    RADIAL = int(Radialtxt)
 
         # Clear the screen
         screen.fill(white)
@@ -334,12 +338,12 @@ def main():
             length = 20
             r2 = r1 + length
 
-            start = (r1 * math.sin(math.radians(theta)), r1 * math.cos(math.radians(theta)))
-            end = (r2 * math.sin(math.radians(theta)), r2 * math.cos(math.radians(theta)))
+            start = (xcomp(r1, theta), ycomp(r1, theta))
+            end = (xcomp(r2, theta), ycomp(r2, theta))
             pygame.draw.line(screen, black, xy(start), xy(end))
 
             r3 = r2 + 20 # spacing for text
-            textstart = (r3 * math.sin(math.radians(theta)), r3 * math.cos(math.radians(theta)))
+            textstart = (xcomp(r3, theta), ycomp(r3, theta))
 
             if theta == 0: theta = 360
             img = myFont.render(formatnum(theta), True, black)
@@ -347,17 +351,17 @@ def main():
             screen.blit(img, text_rect)
 
         # bearing from/to stn
-        draw_arrow(radial, 200, False, True, red, "BFS")
-        draw_arrow(radial + 180, 200, False, True, green, "BTS")
+        draw_arrow(RADIAL, 200, False, True, red, "BFS")
+        draw_arrow(RADIAL + 180, 200, False, True, green, "BTS")
 
         #inbound / outbound course
         draw_arrow(INTERCEPTCOURSE + 180, 200, True, False, blue, "")
         draw_arrow(INTERCEPTCOURSE, 200, False, True, blue, "OUT")
         
-        draw_position(radial, 150, 20)
-        get_intercept(150, radial, INTERCEPTCOURSE, 40)
+        draw_position(RADIAL, 150, 20)
+        get_intercept(150, RADIAL, INTERCEPTCOURSE, 40)
 
-        #draw_text_box(Radial_rect, Radialtxt)
+        #draw_text_box(radial_rect, Radialtxt)
 
 
         # Update the display
