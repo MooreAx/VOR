@@ -19,7 +19,7 @@ arrow_angle = 30
 RADIAL = 130 #aircraft position
 INTERCEPTCOURSE = 280 #intercept course
 ANGLE = 40 #intercept angle
-myFont = pygame.font.SysFont("Arial", 15)
+myFont = pygame.font.SysFont("Consolas", 15)
 
 #coordinate transformations from top left with y down to origin with y up
 def x(x): return(Ox + x)
