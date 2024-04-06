@@ -8,7 +8,7 @@ import re
 pygame.init()
 
 # Set up the screen and define origin
-Width, Height = 800, 600
+Width, Height = 800, 650
 Ox, Oy = 450, Height/2
 O = (Ox, Oy)
 
