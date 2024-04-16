@@ -13,7 +13,7 @@ def get_norm(v):
 	return(np.linalg.norm(v))
 
 def get_angle(v):
-	#atan2(x,y) returns angle from x axis. We want angle from y axis... swap args.
+	#atan2(x,y) returns angle from x axis. We want angle from y axis. Therefore, swap args: atan2(x,y) --> atan2(y,x)
 	return(math.degrees(math.atan2(v[0], v[1])) % 360)
 
 def wind_correction_vectors(wind, trk, tas):
@@ -30,18 +30,18 @@ def wind_correction_vectors(wind, trk, tas):
 
 # CRITICAL POINT / EQUAL TIME CALCULATIONS:
 
-wind_vel = -to_vector(v = 60, theta = 300) #minus sign b/c wind points towards the origin
+wind_vel = -to_vector(v = 30, theta = 90) #minus sign b/c wind points towards the origin
 
-total_distance = 1700
+total_distance = 1000
 
-TRK_out = 37
+TRK_out = 360
 TRK_in = TRK_out + 180 % 360
 
-TAS_2engines = 460
-TAS_1engine = 270
+TAS_2engines = 200
+TAS_1engine = 150
 
 #compute outbound, 2 engines
-[air_vel_out_2e, gnd_vel_out_2e] = wind_correction_vectors(wind_vel, TRK_in, TAS_2engines)
+[air_vel_out_2e, gnd_vel_out_2e] = wind_correction_vectors(wind_vel, TRK_out, TAS_2engines)
 
 #compute outbound, 1 engine
 [air_vel_out_1e, gnd_vel_out_1e] = wind_correction_vectors(wind_vel, TRK_out, TAS_1engine)
@@ -54,6 +54,11 @@ print("G/S outbound, 1 engine: ", round(gnd_speed_out_1e, 1))
 
 gnd_speed_in_1e = get_norm(gnd_vel_in_1e)
 print("G/S home, 1 engine: ", round(gnd_speed_in_1e, 1))
+
+#does the average ground speed equal the TAS? NO
+gnd_speed_1e = (gnd_speed_in_1e + gnd_speed_out_1e)/2
+print("Avg G/S, 1 engine", gnd_speed_1e)
+print("Avg G/S, 1 engine less TAS_1engine =", gnd_speed_1e - TAS_1engine)
 
 gnd_speed_out_2e = get_norm(gnd_vel_out_2e)
 print("G/S outbound, 2 engines: ", round(gnd_speed_out_2e, 1))
