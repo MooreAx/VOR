@@ -8,7 +8,7 @@ import re
 pygame.init()
 
 # Set up the screen and define origin
-Width, Height = 800, 650
+Width, Height = 1200, 650
 Ox, Oy = 450, Height/2
 O = (Ox, Oy)
 
@@ -22,6 +22,7 @@ COURSE = 280 #intercept course
 ANGLE = 40 #intercept angle
 TRACK = 0 #place holder
 myFont = pygame.font.SysFont("Consolas", 15)
+
 
 #coordinate transformations from origin with y up to top left with y down
 #for drawing
@@ -45,6 +46,19 @@ def ycomp(r, theta):
 def xy_to_rtheta(x,y):
     return(math.sqrt(x**2+y**2), math.degrees(math.atan2(x, y)))
 
+
+def xy_points(points):
+    processed = []
+    for point in points:
+        processed.append(xy(point))
+    return processed
+
+def rotate_pts(points, origin, rotation):
+    processed = []
+    for point in points:
+        processed.append(rotate(point, origin, rotation))
+    return(processed)
+
 Radialtxt = str(RADIAL)
 Coursetxt = str(COURSE)
 Angletxt = str(ANGLE)
@@ -52,6 +66,12 @@ Tracktxt = str(TRACK)
 
 screen = pygame.display.set_mode((Width, Height))
 pygame.display.set_caption("Radio Navigation Intercepts")
+
+#stuff for images
+#plane = pygame.image.load('737.png').convert_alpha()
+#plane = pygame.transform.scale(plane, (50,50))
+#image_rect = plane.get_rect()
+#image_rect.topleft = (x(0), y(0))
 
 def get_pos_rect(r, theta):
     left = x(xcomp(r, theta)) - 10
@@ -78,6 +98,7 @@ blue = pygame.Color("blue")
 yellow = pygame.Color("yellow")
 cyan = pygame.Color("cyan")
 magenta = pygame.Color("magenta")
+purple = pygame.Color("purple")
 grey = pygame.Color(224, 224, 224)
 lightyellow = pygame.Color(255, 255, 153)
 
@@ -102,7 +123,6 @@ def draw_input_box(rect, text, active, label, textcol):
     pos_center_offset = (pos_center[0] - 50, pos_center[1])
 
     draw_text(label, myFont, textcol, pos_center_offset)
-
 
 
 def draw_compass_card():
@@ -130,10 +150,10 @@ def rotate(point, origin, rotation):
     point = (px2, py2)
     return(point)
 
+
 def draw_text(text, font, colour, pt):
     img = font.render(text, True, colour)
     text_rect = img.get_rect(center = pt)
-    #img = pygame.transform.rotate(img, 30)
     screen.blit(img, text_rect)
 
 def mod360(angle):
@@ -355,6 +375,16 @@ Radial_active = False
 Course_active = False
 Angle_active = False
 
+#the following is a list of points (x,y), relative to origin, that when connected from start to finish will make an airplane
+plane_def = [(0,2),(0,-2),(0,1),(-2,1),(2,1),(0,1),(0,-1),(-1,-1),(1,-1)]
+scalefactor = 10
+plane_def_scaled = [(scalefactor*x, scalefactor*y) for x, y in plane_def]
+
+def draw_plane(rotation):
+    plane = rotate_pts(plane_def_scaled, (0,0), rotation)
+    plane = xy_points(plane)
+    pygame.draw.lines(screen, purple, False, plane, width = 4)
+
 def gameloop():
     global RADIAL, Radialtxt, Radial_active
     global COURSE, Coursetxt, Course_active
@@ -512,8 +542,12 @@ def gameloop():
         draw_input_box(track_rect, Tracktxt, False, "TRK", black)
 
 
+        draw_plane(TRACK)
+
         # Update the display
         pygame.display.flip()
+
+        
 
         # Cap the frame rate
         clock.tick(60)
