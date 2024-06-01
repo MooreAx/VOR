@@ -17,15 +17,33 @@ O = (Ox, Oy)
 arrow_ht = 20
 arrow_angle = 30
 RADIAL = 130 #aircraft position
+R = 150 #aircraft position
 COURSE = 280 #intercept course
 ANGLE = 40 #intercept angle
 TRACK = 0 #place holder
 myFont = pygame.font.SysFont("Consolas", 15)
 
-#coordinate transformations from top left with y down to origin with y up
+#coordinate transformations from origin with y up to top left with y down
+#for drawing
 def x(x): return(Ox + x)
 def y(y): return(Oy - y)
 def xy(xy): return((x(xy[0]),y(xy[1])))
+
+#coordinate transformations to origin with y up from top left with y down
+def _x(x): return(-Ox + x)
+def _y(y): return(Oy -y)
+def _xy(xy): return((_x(xy[0]),_y(xy[1])))
+
+def xcomp(r, theta):
+    #x component of polar coords
+    return(r*(math.sin(math.radians(theta))))
+
+def ycomp(r, theta):
+    #y component of polar coords
+    return(r*(math.cos(math.radians(theta))))
+
+def xy_to_rtheta(x,y):
+    return(math.sqrt(x**2+y**2), math.degrees(math.atan2(x, y)))
 
 Radialtxt = str(RADIAL)
 Coursetxt = str(COURSE)
@@ -35,12 +53,21 @@ Tracktxt = str(TRACK)
 screen = pygame.display.set_mode((Width, Height))
 pygame.display.set_caption("Radio Navigation Intercepts")
 
-#define input rects
+def get_pos_rect(r, theta):
+    left = x(xcomp(r, theta)) - 10
+    top = y(ycomp(r, theta)) - 10
+    position_rect = pygame.Rect(left, top, 2*10, 2*10)
+    return(position_rect)
+
+#define input box rects
 w, h = 50, 30
 radial_rect = pygame.Rect(50, y(+60) -h/2, w, h)
 course_rect = pygame.Rect(50, y(+20) -h/2, w, h)
 angle_rect = pygame.Rect(50, y(-20) -h/2, w, h)
 track_rect = pygame.Rect(50, y(-60) -h/2, w, h)
+POS_rect = get_pos_rect(R, RADIAL)
+
+
 
 # Colors
 white = pygame.Color("white")
@@ -77,19 +104,12 @@ def draw_input_box(rect, text, active, label, textcol):
     draw_text(label, myFont, textcol, pos_center_offset)
 
 
-def xcomp(r, theta):
-    #x component of polar coords
-    return(r*(math.sin(math.radians(theta))))
-
-def ycomp(r, theta):
-    #y component of polar coords
-    return(r*(math.cos(math.radians(theta))))
 
 def draw_compass_card():
     # Draw a basic compass card
     r = 200
-    pygame.draw.line(screen, black, (x(0), y(-r)), (x(0), y(r)), width = 2)  # N/S
-    pygame.draw.line(screen, black, (x(-r), y(0)), (x(r), y(0)), width = 2)  # E/W
+    pygame.draw.line(screen, black, (x(0), y(-r)), (x(0), y(r)), width = 1)  # N/S
+    pygame.draw.line(screen, black, (x(-r), y(0)), (x(r), y(0)), width = 1)  # E/W
 
 def rotate(point, origin, rotation):
     #rotation in degrees
@@ -276,7 +296,7 @@ def get_intercept(R, theta, course, intercept=90):
     pygame.draw.circle(screen, blue, xy(intercept), radius = 10, width = 2)
     pygame.draw.line(screen, black, xy(a), xy(intercept_ext), width = 3)
 
-    #draw arrow head
+    #draw arrowhead
     angle = math.radians(arrow_angle)  #opening angle
     dx = arrow_ht * math.tan(angle/2)
 
@@ -301,7 +321,7 @@ def get_intercept(R, theta, course, intercept=90):
 
 
 def formatnum(num):
-    return "{:03d}".format(num)
+    return "{:03d}".format(round(num))
 
 def take_screenshot():
     # Get the path to save the screenshot
@@ -340,9 +360,11 @@ def gameloop():
     global COURSE, Coursetxt, Course_active
     global ANGLE, Angletxt, Angle_active
     global TRACK, Tracktxt
+    global R, POS_rect
 
     clock = pygame.time.Clock()
     running = True
+    dragging = False
 
     while running:
         for event in pygame.event.get():
@@ -369,12 +391,31 @@ def gameloop():
                 elif angle_rect.collidepoint(mos_pos):
                     print("angle click")
                     Angle_active = True
+                elif POS_rect.collidepoint(mos_pos):
+                    print("position click")
+                    print(mos_pos)
+                    dragging = True
+
+            elif dragging and event.type == pygame.MOUSEBUTTONUP:
+                dragging = False
+                POS_rect = get_pos_rect(R, RADIAL)
+                print("unclick")
+
+            elif event.type == pygame.MOUSEMOTION:
+                if dragging:
+                    mouse_x, mouse_y = _xy(event.pos)
+                    pos = xy_to_rtheta(mouse_x, mouse_y)
+                    R = pos[0]
+                    RADIAL = mod360(pos[1])
+                    print(R, RADIAL)
 
             #need to make this a function
             if event.type == pygame.KEYDOWN:
                 if Radial_active:
                     if event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
                         Radial_active = False
+                        RADIAL = get_radial_from_text(Radialtxt)
+                        POS_rect = get_pos_rect(R, RADIAL)
                     elif event.key == pygame.K_BACKSPACE:
                         Radialtxt = ""
                     else:
@@ -385,6 +426,7 @@ def gameloop():
                 elif Course_active:
                     if event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
                         Course_active = False
+                        COURSE = get_radial_from_text(Coursetxt)
                     elif event.key == pygame.K_BACKSPACE:
                         Coursetxt = ""
                     else:
@@ -395,6 +437,7 @@ def gameloop():
                 elif Angle_active:
                     if event.key == pygame.K_RETURN or event.key == pygame.K_KP_ENTER:
                         Angle_active = False
+                        ANGLE = get_radial_from_text(Angletxt)
                     elif event.key == pygame.K_BACKSPACE:
                         Angletxt = ""
                     else:
@@ -405,24 +448,20 @@ def gameloop():
 
         if not Radial_active:
             #update radial
-            RADIAL = get_radial_from_text(Radialtxt)
             Radialtxt = str(RADIAL)
 
         if not Course_active:
             #update course
-            COURSE = get_radial_from_text(Coursetxt)
             Coursetxt = str(COURSE)
 
         if not Angle_active:
             #update angle
-            ANGLE = get_radial_from_text(Angletxt)
             Angletxt = str(ANGLE)
 
         Radialtxt = process_radial_text(Radialtxt)
         Coursetxt = process_radial_text(Coursetxt)
         Angletxt = process_radial_text(Angletxt)
         Tracktxt = process_radial_text(str(mod360(TRACK)))
-
 
         # Clear the screen
         screen.fill(white)
@@ -464,8 +503,8 @@ def gameloop():
         draw_arrow(COURSE, arrow_len, False, True, blue, "OUT", 3)
         draw_arrow(COURSE, line_len, False, False, blue, "", 1)
 
-        draw_position(RADIAL, 150, 20)
-        get_intercept(150, RADIAL, COURSE, ANGLE)
+        draw_position(radial = RADIAL, distance = R, heading = 80) #make this dynamic
+        get_intercept(R = R, theta = RADIAL, course = COURSE, intercept = ANGLE) #this also plots the intercept
 
         draw_input_box(radial_rect, Radialtxt, Radial_active, "BFS", red)
         draw_input_box(course_rect, Coursetxt, Course_active, "CRS", blue)
