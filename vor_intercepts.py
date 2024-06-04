@@ -8,10 +8,13 @@ import re
 pygame.init()
 
 # Set up the screen and define origin
-Width, Height = 1200, 650
+Width, Height = 1300, 650
 Ox, Oy = 450, Height/2
 O = (Ox, Oy)
 
+
+#HSI origin
+Hx, Hy = 1000, Height/2
 
 #Initial constants
 arrow_ht = 20
@@ -21,6 +24,7 @@ R = 150 #aircraft position
 COURSE = 280 #intercept course
 ANGLE = 40 #intercept angle
 TRACK = 0 #place holder
+HEADING = RADIAL + 180
 myFont = pygame.font.SysFont("Consolas", 15)
 
 
@@ -79,6 +83,8 @@ def get_pos_rect(r, theta):
     position_rect = pygame.Rect(left, top, 2*10, 2*10)
     return(position_rect)
 
+
+
 #define input box rects
 w, h = 50, 30
 radial_rect = pygame.Rect(50, y(+60) -h/2, w, h)
@@ -86,7 +92,6 @@ course_rect = pygame.Rect(50, y(+20) -h/2, w, h)
 angle_rect = pygame.Rect(50, y(-20) -h/2, w, h)
 track_rect = pygame.Rect(50, y(-60) -h/2, w, h)
 POS_rect = get_pos_rect(R, RADIAL)
-
 
 
 # Colors
@@ -385,12 +390,42 @@ def draw_plane(rotation):
     plane = xy_points(plane)
     pygame.draw.lines(screen, purple, False, plane, width = 4)
 
+
+def draw_hsi():
+    # Draw radials
+    for i in range(72):
+        theta = mod360(i * 5)
+
+        if theta % 10 == 0: # big tick
+            length = 20
+        else: 
+            length = 10
+
+        r1 = 150
+        r2 = r1 - length
+
+        angle = theta + 180 - RADIAL
+
+        start = (xcomp(r1, angle) + Hx - Ox, ycomp(r1, angle))
+        end = (xcomp(r2, angle) + Hx - Ox, ycomp(r2, angle))
+        pygame.draw.line(screen, black, xy(start), xy(end))
+
+        if theta % 30 == 0:
+            r3 = r1 + 20 # spacing for text
+            textstart = (xcomp(r3, angle) + Hx - Ox, ycomp(r3, angle))
+
+            img = myFont.render(str(int(theta/10)), True, black)
+            img = pygame.transform.rotate(img, -angle)
+            text_rect = img.get_rect(center = xy(textstart))
+            screen.blit(img, text_rect)
+
+
 def gameloop():
     global RADIAL, Radialtxt, Radial_active
     global COURSE, Coursetxt, Course_active
     global ANGLE, Angletxt, Angle_active
     global TRACK, Tracktxt
-    global R, POS_rect
+    global R, POS_rect, HEADING
 
     clock = pygame.time.Clock()
     running = True
@@ -518,13 +553,16 @@ def gameloop():
             screen.blit(img, text_rect)
 
 
+        draw_hsi()
+
+
         arrow_len = 200
         line_len = 270
 
         # bearing from/to stn
         draw_arrow(RADIAL, arrow_len, False, True, red, "BFS", 3)
         draw_arrow(RADIAL, line_len, False, False, red, "", 1)
-        draw_arrow(RADIAL + 180, arrow_len, False, True, green, "BTS", 3)
+        draw_arrow(mod360(RADIAL + 180), arrow_len, False, True, green, "BTS", 3)
         draw_arrow(RADIAL + 180, line_len, False, False, green, "", 1)
 
         #inbound / outbound course
@@ -541,8 +579,8 @@ def gameloop():
         draw_input_box(angle_rect, Angletxt, Angle_active, "ANG", black)
         draw_input_box(track_rect, Tracktxt, False, "TRK", black)
 
-
-        draw_plane(TRACK)
+        HEADING = RADIAL + 180
+        draw_plane(HEADING)
 
         # Update the display
         pygame.display.flip()
