@@ -26,6 +26,8 @@ ANGLE = 40 #intercept angle
 TRACK = 0 #place holder
 HEADING = RADIAL + 180
 myFont = pygame.font.SysFont("Consolas", 15)
+INTERCEPT = (0,0) #xy but change to r theta
+AC_POS = (0,0) #xy but change to r theta
 
 
 #coordinate transformations from origin with y up to top left with y down
@@ -49,7 +51,6 @@ def ycomp(r, theta):
 
 def xy_to_rtheta(x,y):
     return(math.sqrt(x**2+y**2), math.degrees(math.atan2(x, y)))
-
 
 def xy_points(points):
     processed = []
@@ -93,6 +94,8 @@ angle_rect = pygame.Rect(50, y(-20) -h/2, w, h)
 track_rect = pygame.Rect(50, y(-60) -h/2, w, h)
 POS_rect = get_pos_rect(R, RADIAL)
 
+AC_POS_rect = get_pos_rect(xy_to_rtheta(AC_POS[0], AC_POS[1])[0],xy_to_rtheta(AC_POS[0], AC_POS[1])[1])
+print(AC_POS_rect)
 
 # Colors
 white = pygame.Color("white")
@@ -264,7 +267,7 @@ def extend_ab(a, b, extralength):
     return(new_end)
 
 def get_intercept(R, theta, course, intercept=90):
-    global TRACK
+    global TRACK, INTERCEPT
     #need to project (R, theta) [a] onto course [b], i.e., a onto b
     a = (xcomp(R, theta), ycomp(R, theta))
     b = (xcomp(1, course), ycomp(1, course))
@@ -313,6 +316,8 @@ def get_intercept(R, theta, course, intercept=90):
     intercept_y = m1*intercept_x + b1
 
     intercept = (intercept_x, intercept_y)
+    INTERCEPT = intercept
+    #print(INTERCEPT)
 
     #extend intercept course beyond the intercept point for plotting purposes
     intercept_ext = extend_ab(a, intercept, 100)
@@ -344,6 +349,12 @@ def get_intercept(R, theta, course, intercept=90):
     middle = xy(extend_ab(a, intercept_ext, 20))
     draw_text(text, myFont, black, middle)
 
+def midpoint():
+    p1 = (xcomp(R, RADIAL), ycomp(R, RADIAL))
+    p2 = INTERCEPT
+    midpt = ((p1[0] + p2[0])/2, (p1[1] + p2[1])/2)
+    #print(midpt)
+    return(midpt)
 
 def formatnum(num):
     return "{:03d}".format(round(num))
@@ -386,8 +397,13 @@ scalefactor = 10
 plane_def_scaled = [(scalefactor*x, scalefactor*y) for x, y in plane_def]
 
 def draw_plane(rotation):
+    global AC_POS
     plane = rotate_pts(plane_def_scaled, (0,0), rotation)
-    plane = xy_points(plane)
+    
+    plane2 = [(AC_POS[0] + x, AC_POS[1] + y) for x,y in plane]
+
+    #print(AC_POS)
+    plane = xy_points(plane2)
     pygame.draw.lines(screen, purple, False, plane, width = 4)
 
 
@@ -404,7 +420,7 @@ def draw_hsi():
         r1 = 150
         r2 = r1 - length
 
-        angle = theta + 180 - RADIAL
+        angle = theta + HEADING
 
         start = (xcomp(r1, angle) + Hx - Ox, ycomp(r1, angle))
         end = (xcomp(r2, angle) + Hx - Ox, ycomp(r2, angle))
@@ -418,6 +434,7 @@ def draw_hsi():
             img = pygame.transform.rotate(img, -angle)
             text_rect = img.get_rect(center = xy(textstart))
             screen.blit(img, text_rect)
+    pygame.draw.line(screen, black, xy((Hx-Ox,r1)), xy((Hx-Ox,r1+10)), width = 5)
 
 
 def gameloop():
@@ -425,11 +442,12 @@ def gameloop():
     global COURSE, Coursetxt, Course_active
     global ANGLE, Angletxt, Angle_active
     global TRACK, Tracktxt
-    global R, POS_rect, HEADING
+    global R, POS_rect, HEADING, AC_POS, AC_POS_rect
 
     clock = pygame.time.Clock()
     running = True
     dragging = False
+    dragging_ac = False
 
     while running:
         for event in pygame.event.get():
@@ -458,12 +476,21 @@ def gameloop():
                     Angle_active = True
                 elif POS_rect.collidepoint(mos_pos):
                     print("position click")
-                    print(mos_pos)
+                    #print(mos_pos)
                     dragging = True
+                elif AC_POS_rect.collidepoint(mos_pos):
+                    print("AC click")
+                    dragging_ac = True
 
             elif dragging and event.type == pygame.MOUSEBUTTONUP:
                 dragging = False
+                AC_POS_rect = get_pos_rect(xy_to_rtheta(AC_POS[0], AC_POS[1])[0],xy_to_rtheta(AC_POS[0], AC_POS[1])[1])
                 POS_rect = get_pos_rect(R, RADIAL)
+                print("unclick")
+
+            elif dragging_ac and event.type == pygame.MOUSEBUTTONUP:
+                dragging_ac = False
+                AC_POS_rect = get_pos_rect(xy_to_rtheta(AC_POS[0], AC_POS[1])[0],xy_to_rtheta(AC_POS[0], AC_POS[1])[1])
                 print("unclick")
 
             elif event.type == pygame.MOUSEMOTION:
@@ -472,7 +499,11 @@ def gameloop():
                     pos = xy_to_rtheta(mouse_x, mouse_y)
                     R = pos[0]
                     RADIAL = mod360(pos[1])
+                    AC_POS = midpoint()
                     print(R, RADIAL)
+
+                elif dragging_ac:
+                    AC_POS = _xy(event.pos)
 
             #need to make this a function
             if event.type == pygame.KEYDOWN:
@@ -579,7 +610,7 @@ def gameloop():
         draw_input_box(angle_rect, Angletxt, Angle_active, "ANG", black)
         draw_input_box(track_rect, Tracktxt, False, "TRK", black)
 
-        HEADING = RADIAL + 180
+        HEADING = TRACK
         draw_plane(HEADING)
 
         # Update the display
