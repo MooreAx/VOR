@@ -8,10 +8,13 @@ import re
 pygame.init()
 
 # Set up the screen and define origin
-Width, Height = 800, 650
+Width, Height = 1300, 650
 Ox, Oy = 450, Height/2
 O = (Ox, Oy)
 
+
+#HSI origin
+Hx, Hy = 1000, Height/2
 
 #Initial constants
 arrow_ht = 20
@@ -21,7 +24,13 @@ R = 150 #aircraft position
 COURSE = 280 #intercept course
 ANGLE = 40 #intercept angle
 TRACK = 0 #place holder
+HEADING = RADIAL + 180
 myFont = pygame.font.SysFont("Consolas", 15)
+INTERCEPT = (0,0) #xy but change to r theta
+AC_POS = (0,0) #xy but change to r theta
+FROM = True
+HEADING = TRACK
+
 
 #coordinate transformations from origin with y up to top left with y down
 #for drawing
@@ -45,6 +54,18 @@ def ycomp(r, theta):
 def xy_to_rtheta(x,y):
     return(math.sqrt(x**2+y**2), math.degrees(math.atan2(x, y)))
 
+def xy_points(points):
+    processed = []
+    for point in points:
+        processed.append(xy(point))
+    return processed
+
+def rotate_pts(points, origin, rotation):
+    processed = []
+    for point in points:
+        processed.append(rotate(point, origin, rotation))
+    return(processed)
+
 Radialtxt = str(RADIAL)
 Coursetxt = str(COURSE)
 Angletxt = str(ANGLE)
@@ -53,11 +74,19 @@ Tracktxt = str(TRACK)
 screen = pygame.display.set_mode((Width, Height))
 pygame.display.set_caption("Radio Navigation Intercepts")
 
+#stuff for images
+#plane = pygame.image.load('737.png').convert_alpha()
+#plane = pygame.transform.scale(plane, (50,50))
+#image_rect = plane.get_rect()
+#image_rect.topleft = (x(0), y(0))
+
 def get_pos_rect(r, theta):
     left = x(xcomp(r, theta)) - 10
     top = y(ycomp(r, theta)) - 10
     position_rect = pygame.Rect(left, top, 2*10, 2*10)
     return(position_rect)
+
+
 
 #define input box rects
 w, h = 50, 30
@@ -67,7 +96,8 @@ angle_rect = pygame.Rect(50, y(-20) -h/2, w, h)
 track_rect = pygame.Rect(50, y(-60) -h/2, w, h)
 POS_rect = get_pos_rect(R, RADIAL)
 
-
+AC_POS_rect = get_pos_rect(xy_to_rtheta(AC_POS[0], AC_POS[1])[0],xy_to_rtheta(AC_POS[0], AC_POS[1])[1])
+print(AC_POS_rect)
 
 # Colors
 white = pygame.Color("white")
@@ -78,6 +108,7 @@ blue = pygame.Color("blue")
 yellow = pygame.Color("yellow")
 cyan = pygame.Color("cyan")
 magenta = pygame.Color("magenta")
+purple = pygame.Color("purple")
 grey = pygame.Color(224, 224, 224)
 lightyellow = pygame.Color(255, 255, 153)
 
@@ -102,7 +133,6 @@ def draw_input_box(rect, text, active, label, textcol):
     pos_center_offset = (pos_center[0] - 50, pos_center[1])
 
     draw_text(label, myFont, textcol, pos_center_offset)
-
 
 
 def draw_compass_card():
@@ -130,10 +160,10 @@ def rotate(point, origin, rotation):
     point = (px2, py2)
     return(point)
 
+
 def draw_text(text, font, colour, pt):
     img = font.render(text, True, colour)
     text_rect = img.get_rect(center = pt)
-    #img = pygame.transform.rotate(img, 30)
     screen.blit(img, text_rect)
 
 def mod360(angle):
@@ -201,6 +231,90 @@ def draw_arrow(theta, length, inbound=False, outbound=False, colour=black, label
         draw_text(text, myFont, colour, middle)
 
 
+def draw_arrow_HSI(XTE):
+    length = 120
+    theta = COURSE - HEADING
+    #draws an arrow from the origin
+
+    tipx = xcomp(length, theta)
+    tipy = ycomp(length, theta)
+    tip = (tipx, tipy)
+    start = (0, 0)
+
+    #draw line (convert to screen coordinates)
+    pygame.draw.line(screen, purple, xy((-tipx + Hx-Ox, -tipy)), xy((tipx + Hx-Ox, tipy)), width = 3)
+    # Calculate points for arrowhead
+
+    #construct vertical arrow with tip at origin, then rotate and translate
+
+    angle = math.radians(arrow_angle)  #opening angle
+    dx = arrow_ht * math.tan(angle/2)
+
+    #OUTBOUND
+    p1 = (-dx, -arrow_ht) #normal coords
+    p2 = (+dx, -arrow_ht) #normal coords
+
+    #rotate
+    p1 = rotate(p1, (0,0), theta)
+    p2 = rotate(p2, (0,0), theta)
+
+    #translate
+    p1 = (p1[0] + tip[0] + Hx-Ox, p1[1] + tip[1])
+    p2 = (p2[0] + tip[0] + Hx-Ox, p2[1] + tip[1])
+
+    # Draw the arrowhead (convert to screen coordinates)
+    pygame.draw.polygon(screen, purple, [xy(p1), xy(p2), xy((tipx+Hx-Ox, tipy))])
+
+    #draw XTE
+    right_hat = (xcomp(1, theta+90), ycomp(1, theta+90))
+
+    xtrackvector = ((XTE * right_hat[0], XTE * right_hat[1]))
+
+    xtrack_length = 50
+
+    xte1 = (xcomp(xtrack_length, theta) - xtrackvector[0], ycomp(xtrack_length, theta) - xtrackvector[1])
+    xte2 = (-xcomp(xtrack_length, theta) - xtrackvector[0], -ycomp(xtrack_length, theta) - xtrackvector[1])
+
+    pygame.draw.line(screen, purple, xy((xte1[0] + Hx-Ox, xte1[1])), xy((xte2[0] + Hx-Ox, xte2[1])), width = 3)
+
+    #to from flag:
+    flaglength = 90
+
+    flagoffsetangle = 15
+
+    if FROM:
+        theta = theta + 180
+        flagoffsetangle = -flagoffsetangle
+
+    flagx = xcomp(flaglength, theta + flagoffsetangle)
+    flagy = ycomp(flaglength, theta + flagoffsetangle)
+    flagtip = (flagx, flagy)
+
+    flagp1 = (-(dx+5), -arrow_ht) #normal coords
+    flagp2 = (+(dx+5), -arrow_ht) #normal coords
+
+    #rotate
+    flagp1 = rotate(flagp1, (0,0), theta)
+    flagp2 = rotate(flagp2, (0,0), theta)
+
+    #translate
+    flagp1 = (flagp1[0] + flagtip[0] + Hx-Ox, flagp1[1] + flagtip[1])
+    flagp2 = (flagp2[0] + flagtip[0] + Hx-Ox, flagp2[1] + flagtip[1])
+
+    # Draw the arrowhead (convert to screen coordinates)
+    pygame.draw.polygon(screen, black, [xy(flagp1), xy(flagp2), xy((flagx+Hx-Ox, flagy))])
+
+
+    #draw the dots
+    space = 12
+    for i in range(-5, 6):
+        if i != 0:
+            circlepos = (right_hat[0] * space * i + Hx - Ox, right_hat[1] * space * i)
+            pygame.draw.circle(screen, black, xy(circlepos), radius = 3)
+
+
+
+
 def dotproduct(a, b):
     return(a[0]*b[0] + a[1]*b[1])
 
@@ -239,7 +353,7 @@ def extend_ab(a, b, extralength):
     return(new_end)
 
 def get_intercept(R, theta, course, intercept=90):
-    global TRACK
+    global TRACK, INTERCEPT
     #need to project (R, theta) [a] onto course [b], i.e., a onto b
     a = (xcomp(R, theta), ycomp(R, theta))
     b = (xcomp(1, course), ycomp(1, course))
@@ -288,12 +402,14 @@ def get_intercept(R, theta, course, intercept=90):
     intercept_y = m1*intercept_x + b1
 
     intercept = (intercept_x, intercept_y)
+    INTERCEPT = intercept
+    #print(INTERCEPT)
 
     #extend intercept course beyond the intercept point for plotting purposes
     intercept_ext = extend_ab(a, intercept, 100)
 
     #plot intercept point
-    pygame.draw.circle(screen, blue, xy(intercept), radius = 10, width = 2)
+    pygame.draw.circle(screen, purple, xy(intercept), radius = 10, width = 2)
     pygame.draw.line(screen, black, xy(a), xy(intercept_ext), width = 3)
 
     #draw arrowhead
@@ -319,6 +435,12 @@ def get_intercept(R, theta, course, intercept=90):
     middle = xy(extend_ab(a, intercept_ext, 20))
     draw_text(text, myFont, black, middle)
 
+def midpoint():
+    p1 = (xcomp(R, RADIAL), ycomp(R, RADIAL))
+    p2 = INTERCEPT
+    midpt = ((p1[0] + p2[0])/2, (p1[1] + p2[1])/2)
+    #print(midpt)
+    return(midpt)
 
 def formatnum(num):
     return "{:03d}".format(round(num))
@@ -355,16 +477,93 @@ Radial_active = False
 Course_active = False
 Angle_active = False
 
+#the following is a list of points (x,y), relative to origin, that when connected from start to finish will make an airplane
+plane_def = [(0,2),(0,-2),(0,1),(-2,1),(2,1),(0,1),(0,-1),(-1,-1),(1,-1)]
+scalefactor = 10
+plane_def_scaled = [(scalefactor*x, scalefactor*y) for x, y in plane_def]
+
+def draw_plane(rotation):
+    global AC_POS
+    plane = rotate_pts(plane_def_scaled, (0,0), rotation)
+    
+    plane2 = [(AC_POS[0] + x, AC_POS[1] + y) for x,y in plane]
+
+    #print(AC_POS)
+    plane = xy_points(plane2)
+    pygame.draw.lines(screen, blue, False, plane, width = 4)
+
+
+def draw_hsi():
+    # Draw radials
+    for i in range(72):
+        theta = mod360(i * 5)
+
+        if theta % 10 == 0: # big tick
+            length = 20
+        else: 
+            length = 10
+
+        r1 = 150
+        r2 = r1 - length
+
+        angle = theta - HEADING
+        
+        start = (xcomp(r1, angle) + Hx - Ox, ycomp(r1, angle))
+        end = (xcomp(r2, angle) + Hx - Ox, ycomp(r2, angle))
+        pygame.draw.line(screen, black, xy(start), xy(end))
+
+        if theta % 30 == 0:
+            r3 = r1 + 20 # spacing for text
+            textstart = (xcomp(r3, angle) + Hx - Ox, ycomp(r3, angle))
+
+            img = myFont.render(str(int(theta/10)), True, black)
+            img = pygame.transform.rotate(img, -angle)
+            text_rect = img.get_rect(center = xy(textstart))
+            screen.blit(img, text_rect)
+    pygame.draw.line(screen, red, xy((Hx-Ox,r1)), xy((Hx-Ox,r1+10)), width = 5)
+
+
+def get_crosstrack_error():
+    global FROM
+    #i think this is the magnitude of the rejection of the ac pos vector onto the course unit vector 
+    
+    course_hat = unit_vector((xcomp(1, COURSE), ycomp(1, COURSE)))
+
+    course_reject_position = a_perp_b(AC_POS, course_hat)
+    crosstrackerror = norm(course_reject_position)
+
+    #need to get sign: designate + as course is to left, i.e. R XTE
+    right_hat = (xcomp(1, COURSE+90), ycomp(1, COURSE+90))
+
+    sp = scalar_projection(course_reject_position, right_hat)
+    if sp < 0:
+        crosstrackerror = crosstrackerror * - 1
+
+    #need a couple extra defs for plotting purposes
+    course_parallel_pos = a_onto_b(AC_POS, course_hat)
+    pygame.draw.line(screen, black, xy(course_parallel_pos), xy(AC_POS), width = 1)
+
+    #also for fun, draw the projection vector too (used for to/from flag)
+    pygame.draw.line(screen, black, xy(course_reject_position), xy(AC_POS), width = 1)
+    
+    if scalar_projection(course_parallel_pos, course_hat) > 0:
+        FROM = False
+    else:
+        FROM = True
+
+    return(crosstrackerror)
+
 def gameloop():
     global RADIAL, Radialtxt, Radial_active
     global COURSE, Coursetxt, Course_active
     global ANGLE, Angletxt, Angle_active
     global TRACK, Tracktxt
-    global R, POS_rect
+    global R, POS_rect, HEADING, AC_POS, AC_POS_rect
 
     clock = pygame.time.Clock()
     running = True
     dragging = False
+    dragging_ac = False
 
     while running:
         for event in pygame.event.get():
@@ -393,12 +592,22 @@ def gameloop():
                     Angle_active = True
                 elif POS_rect.collidepoint(mos_pos):
                     print("position click")
-                    print(mos_pos)
+                    #print(mos_pos)
+                    HEADING = TRACK
                     dragging = True
+                elif AC_POS_rect.collidepoint(mos_pos):
+                    print("AC click")
+                    dragging_ac = True
 
             elif dragging and event.type == pygame.MOUSEBUTTONUP:
                 dragging = False
+                AC_POS_rect = get_pos_rect(xy_to_rtheta(AC_POS[0], AC_POS[1])[0],xy_to_rtheta(AC_POS[0], AC_POS[1])[1])
                 POS_rect = get_pos_rect(R, RADIAL)
+                print("unclick")
+
+            elif dragging_ac and event.type == pygame.MOUSEBUTTONUP:
+                dragging_ac = False
+                AC_POS_rect = get_pos_rect(xy_to_rtheta(AC_POS[0], AC_POS[1])[0],xy_to_rtheta(AC_POS[0], AC_POS[1])[1])
                 print("unclick")
 
             elif event.type == pygame.MOUSEMOTION:
@@ -407,7 +616,11 @@ def gameloop():
                     pos = xy_to_rtheta(mouse_x, mouse_y)
                     R = pos[0]
                     RADIAL = mod360(pos[1])
+                    AC_POS = midpoint()
                     print(R, RADIAL)
+
+                elif dragging_ac:
+                    AC_POS = _xy(event.pos)
 
             #need to make this a function
             if event.type == pygame.KEYDOWN:
@@ -444,7 +657,20 @@ def gameloop():
                         if len(Angletxt) == 2:
                             Angletxt = event.unicode
                         else:
-                            Angletxt += event.unicode               
+                            Angletxt += event.unicode
+        
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_RIGHT]:
+            HEADING += 0.3
+        elif keys[pygame.K_LEFT]:
+            HEADING -= 0.3
+        if keys[pygame.K_UP]:
+            v = 0.1
+            dx = v * math.sin(math.radians(HEADING))
+            dy = v * math.cos(math.radians(HEADING))
+            AC_POS =(AC_POS[0] + dx, AC_POS[1] + dy)
+            AC_POS_rect = get_pos_rect(xy_to_rtheta(AC_POS[0], AC_POS[1])[0],xy_to_rtheta(AC_POS[0], AC_POS[1])[1])
+
 
         if not Radial_active:
             #update radial
@@ -488,32 +714,41 @@ def gameloop():
             screen.blit(img, text_rect)
 
 
+        draw_hsi()
+        xte = get_crosstrack_error()
+        #print("xte = ",xte)
+        draw_arrow_HSI(xte)
+
+
         arrow_len = 200
         line_len = 270
 
         # bearing from/to stn
         draw_arrow(RADIAL, arrow_len, False, True, red, "BFS", 3)
         draw_arrow(RADIAL, line_len, False, False, red, "", 1)
-        draw_arrow(RADIAL + 180, arrow_len, False, True, green, "BTS", 3)
+        draw_arrow(mod360(RADIAL + 180), arrow_len, False, True, green, "BTS", 3)
         draw_arrow(RADIAL + 180, line_len, False, False, green, "", 1)
 
         #inbound / outbound course
-        draw_arrow(COURSE + 180, arrow_len, True, False, blue, "IN", 3)
-        draw_arrow(COURSE + 180, line_len, False, False, blue, "", 1)
-        draw_arrow(COURSE, arrow_len, False, True, blue, "OUT", 3)
-        draw_arrow(COURSE, line_len, False, False, blue, "", 1)
+        draw_arrow(COURSE + 180, arrow_len, True, False, purple, "IN", 3)
+        draw_arrow(COURSE + 180, line_len, False, False, purple, "", 1)
+        draw_arrow(COURSE, arrow_len, False, True, purple, "OUT", 3)
+        draw_arrow(COURSE, line_len, False, False, purple, "", 1)
 
         draw_position(radial = RADIAL, distance = R, heading = 80) #make this dynamic
         get_intercept(R = R, theta = RADIAL, course = COURSE, intercept = ANGLE) #this also plots the intercept
 
         draw_input_box(radial_rect, Radialtxt, Radial_active, "BFS", red)
-        draw_input_box(course_rect, Coursetxt, Course_active, "CRS", blue)
+        draw_input_box(course_rect, Coursetxt, Course_active, "CRS", purple)
         draw_input_box(angle_rect, Angletxt, Angle_active, "ANG", black)
         draw_input_box(track_rect, Tracktxt, False, "TRK", black)
 
+        draw_plane(HEADING)
 
         # Update the display
         pygame.display.flip()
+
+        
 
         # Cap the frame rate
         clock.tick(60)
