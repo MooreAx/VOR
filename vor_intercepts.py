@@ -547,9 +547,9 @@ def get_crosstrack_error():
     pygame.draw.line(screen, black, xy(course_reject_position), xy(AC_POS), width = 1)
     
     if scalar_projection(course_parallel_pos, course_hat) > 0:
-        FROM = False
-    else:
         FROM = True
+    else:
+        FROM = False
 
     return(crosstrackerror)
 
@@ -661,11 +661,11 @@ def gameloop():
         
         keys = pygame.key.get_pressed()
         if keys[pygame.K_RIGHT]:
-            HEADING += 0.3
+            HEADING += 0.5
         elif keys[pygame.K_LEFT]:
-            HEADING -= 0.3
+            HEADING -= 0.5
         if keys[pygame.K_UP]:
-            v = 0.1
+            v = .5
             dx = v * math.sin(math.radians(HEADING))
             dy = v * math.cos(math.radians(HEADING))
             AC_POS =(AC_POS[0] + dx, AC_POS[1] + dy)
