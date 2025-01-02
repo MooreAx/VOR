@@ -9,8 +9,8 @@ pygame.init()
 
 # Set up the screen and define origin
 Width, Height = 1300, 650
-Ox, Oy = 450, Height/2
-O = (Ox, Oy)
+Origin_x, Origin_y = 450, Height/2
+O = (Origin_x, Origin_y)
 
 #HSI origin
 HSI_x, HSI_y = 900, 170
@@ -39,13 +39,13 @@ HEADING = TRACK
 
 #coordinate transformations from origin with y up to top left with y down
 #for drawing
-def x(x): return(Ox + x)
-def y(y): return(Oy - y)
+def x(x): return(Origin_x + x)
+def y(y): return(Origin_y - y)
 def xy(xy): return((x(xy[0]),y(xy[1])))
 
 #coordinate transformations to origin with y up from top left with y down
-def _x(x): return(-Ox + x)
-def _y(y): return(Oy -y)
+def _x(x): return(-Origin_x + x)
+def _y(y): return(Origin_y -y)
 def _xy(xy): return((_x(xy[0]),_y(xy[1])))
 
 def xcomp(r, theta):
@@ -79,21 +79,13 @@ Tracktxt = str(TRACK)
 screen = pygame.display.set_mode((Width, Height))
 pygame.display.set_caption("Radio Navigation Intercepts")
 
-#stuff for images
-#plane = pygame.image.load('737.png').convert_alpha()
-#plane = pygame.transform.scale(plane, (50,50))
-#image_rect = plane.get_rect()
-#image_rect.topleft = (x(0), y(0))
-
 def get_pos_rect(r, theta):
     left = x(xcomp(r, theta)) - 10
     top = y(ycomp(r, theta)) - 10
     position_rect = pygame.Rect(left, top, 2*10, 2*10)
     return(position_rect)
 
-
-
-#define input box rects
+#define input origin_x rects
 w, h = 50, 30
 radial_rect = pygame.Rect(50, y(+60) -h/2, w, h)
 course_rect = pygame.Rect(50, y(+20) -h/2, w, h)
@@ -130,7 +122,7 @@ def draw_input_box(rect, text, active, label, textcol):
     pos_center = rect.center
 
     pygame.draw.rect(screen, backgroundcol, rect)
-    pygame.draw.rect(screen, black, rect, 2)  # Draw the border of the text box
+    pygame.draw.rect(screen, black, rect, 2)  # Draw the border of the text bOrigin_x
     img = myFont.render(text, True, black)
     text_rect = img.get_rect(center = pos_center)
     screen.blit(img, text_rect)
@@ -150,17 +142,17 @@ def rotate(point, origin, rotation):
     #rotation in degrees
     px = point[0]
     py = point[1]
-    ox = origin[0]
-    oy = origin[1]
+    Origin_x = origin[0]
+    Origin_y = origin[1]
 
     #change to polar coords:
-    r = math.sqrt((px-ox)**2+(py-oy)**2)
-    theta1 = math.degrees(math.atan2(px-ox, py-oy))
+    r = math.sqrt((px-Origin_x)**2+(py-Origin_y)**2)
+    theta1 = math.degrees(math.atan2(px-Origin_x, py-Origin_y))
 
     theta2 = theta1 + rotation
 
-    px2 = ox + xcomp(r, theta2)
-    py2 = oy + ycomp(r, theta2)
+    px2 = Origin_x + xcomp(r, theta2)
+    py2 = Origin_y + ycomp(r, theta2)
 
     point = (px2, py2)
     return(point)
@@ -175,6 +167,66 @@ def mod360(angle):
     angle = angle % 360
     if angle == 0: angle = 360
     return(angle)
+
+
+def draw_arrow_map(theta, length, inbound=False, outbound=False, colour=black, label="", wt=3):
+    #draws an arrow from the origin
+
+    tip = theta_int_square(theta, 500)
+
+    #draw line (convert to screen coordinates)
+    pygame.draw.line(screen, colour, O, xy(tip), wt)
+
+    # Calculate points for arrowhead
+
+    #construct vertical arrow with tip at origin, then rotate and translate
+
+    angle = math.radians(arrow_angle)  #opening angle
+    dx = arrow_ht * math.tan(angle/2)
+
+    #OUTBOUND
+    if outbound == True:
+        p1 = (-dx, -arrow_ht) #normal coords
+        p2 = (+dx, -arrow_ht) #normal coords
+
+        #rotate
+        p1 = rotate(p1, (0,0), theta)
+        p2 = rotate(p2, (0,0), theta)
+
+        #translate
+        p1 = (p1[0] + tip[0], p1[1] + tip[1])
+        p2 = (p2[0] + tip[0], p2[1] + tip[1])
+
+        # Draw the arrowhead (convert to screen coordinates)
+        pygame.draw.polygon(screen, colour, [xy(p1), xy(p2), xy(tip)])
+
+    #INBOUND
+    if inbound == True:
+        p1 = (-dx, 0) #normal coords
+        p2 = (+dx, 0) #normal coords
+        p3 = (0, -arrow_ht)
+
+        #rotate
+        p1 = rotate(p1, (0,0), theta)
+        p2 = rotate(p2, (0,0), theta)
+        p3 = rotate(p3, (0,0), theta)
+
+        #translate
+        p1 = (p1[0] + tip[0], p1[1] + tip[1])
+        p2 = (p2[0] + tip[0], p2[1] + tip[1])
+        p3 = (p3[0] + tip[0], p3[1] + tip[1])
+
+        # Draw the arrowhead (convert to screen coordinates)
+        pygame.draw.polygon(screen, colour, [xy(p1), xy(p2), xy(p3)])
+
+    if label != "":
+        if label == "IN":
+            theta = mod360(theta + 180)
+        text = formatnum(theta) + " " + label
+        middle = theta_int_square(theta, 500+20)
+        draw_text(text, myFont, colour, middle)
+
+
 
 def draw_arrow(theta, length, inbound=False, outbound=False, colour=black, label="", wt=3):
     #draws an arrow from the origin
@@ -255,7 +307,7 @@ def draw_arrow_HSI(XTE):
     start = (0, 0)
 
     #draw line (convert to screen coordinates)
-    pygame.draw.line(screen, purple, xy((-tipx + HSI_x-Ox, -tipy + HSI_y-Oy)), xy((tipx + HSI_x-Ox, tipy + HSI_y-Oy)), width = 3)
+    pygame.draw.line(screen, purple, xy((-tipx + HSI_x-Origin_x, -tipy + HSI_y-Origin_y)), xy((tipx + HSI_x-Origin_x, tipy + HSI_y-Origin_y)), width = 3)
     # Calculate points for arrowhead
 
     #construct vertical arrow with tip at origin, then rotate and translate
@@ -272,11 +324,11 @@ def draw_arrow_HSI(XTE):
     p2 = rotate(p2, (0,0), theta)
 
     #translate
-    p1 = (p1[0] + tip[0] + HSI_x-Ox, p1[1] + tip[1] +HSI_y-Oy)
-    p2 = (p2[0] + tip[0] + HSI_x-Ox, p2[1] + tip[1] +HSI_y-Oy)
+    p1 = (p1[0] + tip[0] + HSI_x-Origin_x, p1[1] + tip[1] +HSI_y-Origin_y)
+    p2 = (p2[0] + tip[0] + HSI_x-Origin_x, p2[1] + tip[1] +HSI_y-Origin_y)
 
     # Draw the arrowhead (convert to screen coordinates)
-    pygame.draw.polygon(screen, purple, [xy(p1), xy(p2), xy((tipx+HSI_x-Ox, tipy+HSI_y-Oy))])
+    pygame.draw.polygon(screen, purple, [xy(p1), xy(p2), xy((tipx+HSI_x-Origin_x, tipy+HSI_y-Origin_y))])
 
     #draw XTE
     right_hat = (xcomp(1, theta+90), ycomp(1, theta+90))
@@ -295,7 +347,7 @@ def draw_arrow_HSI(XTE):
     xte1 = (xcomp(xtrack_length, theta) - xtrackvector[0], ycomp(xtrack_length, theta) - xtrackvector[1])
     xte2 = (-xcomp(xtrack_length, theta) - xtrackvector[0], -ycomp(xtrack_length, theta) - xtrackvector[1])
 
-    pygame.draw.line(screen, purple, xy((xte1[0] + HSI_x-Ox, xte1[1] + HSI_y-Oy)), xy((xte2[0] + HSI_x-Ox, xte2[1] + HSI_y-Oy)), width = 3)
+    pygame.draw.line(screen, purple, xy((xte1[0] + HSI_x-Origin_x, xte1[1] + HSI_y-Origin_y)), xy((xte2[0] + HSI_x-Origin_x, xte2[1] + HSI_y-Origin_y)), width = 3)
 
     #to from flag:
     flaglength = 70 #distance above origin
@@ -318,17 +370,17 @@ def draw_arrow_HSI(XTE):
     flagp2 = rotate(flagp2, (0,0), theta)
 
     #translate
-    flagp1 = (flagp1[0] + flagtip[0] + HSI_x-Ox, flagp1[1] + flagtip[1] + HSI_y-Oy)
-    flagp2 = (flagp2[0] + flagtip[0] + HSI_x-Ox, flagp2[1] + flagtip[1] + HSI_y-Oy)
+    flagp1 = (flagp1[0] + flagtip[0] + HSI_x-Origin_x, flagp1[1] + flagtip[1] + HSI_y-Origin_y)
+    flagp2 = (flagp2[0] + flagtip[0] + HSI_x-Origin_x, flagp2[1] + flagtip[1] + HSI_y-Origin_y)
 
     # Draw the arrowhead (convert to screen coordinates)
-    pygame.draw.polygon(screen, black, [xy(flagp1), xy(flagp2), xy((flagx+HSI_x-Ox, flagy+HSI_y-Oy))])
+    pygame.draw.polygon(screen, black, [xy(flagp1), xy(flagp2), xy((flagx+HSI_x-Origin_x, flagy+HSI_y-Origin_y))])
 
 
     #draw the dots
     for i in range(-5, 6):
         if i != 0:
-            circlepos = (right_hat[0] * dot_space * i + HSI_x-Ox, right_hat[1] * dot_space * i + HSI_y-Oy)
+            circlepos = (right_hat[0] * dot_space * i + HSI_x-Origin_x, right_hat[1] * dot_space * i + HSI_y-Origin_y)
             pygame.draw.circle(screen, black, xy(circlepos), radius = 2)
 
 
@@ -349,7 +401,7 @@ def draw_arrow_fcadf():
     start = (0, 0)
 
     #draw line (convert to screen coordinates)
-    pygame.draw.line(screen, purple, xy((-tipx + ADF_x-Ox, -tipy + ADF_y-Oy)), xy((tipx + ADF_x-Ox, tipy + ADF_y-Oy)), width = 3)
+    pygame.draw.line(screen, purple, xy((-tipx + ADF_x-Origin_x, -tipy + ADF_y-Origin_y)), xy((tipx + ADF_x-Origin_x, tipy + ADF_y-Origin_y)), width = 3)
     # Calculate points for arrowhead
 
     #construct vertical arrow with tip at origin, then rotate and translate
@@ -366,11 +418,11 @@ def draw_arrow_fcadf():
     p2 = rotate(p2, (0,0), RELATIVE_BEARING)
 
     #translate
-    p1 = (p1[0] + tip[0] + ADF_x-Ox, p1[1] + tip[1] +ADF_y-Oy)
-    p2 = (p2[0] + tip[0] + ADF_x-Ox, p2[1] + tip[1] +ADF_y-Oy)
+    p1 = (p1[0] + tip[0] + ADF_x-Origin_x, p1[1] + tip[1] +ADF_y-Origin_y)
+    p2 = (p2[0] + tip[0] + ADF_x-Origin_x, p2[1] + tip[1] +ADF_y-Origin_y)
 
     # Draw the arrowhead (convert to screen coordinates)
-    pygame.draw.polygon(screen, purple, [xy(p1), xy(p2), xy((tipx+ADF_x-Ox, tipy+ADF_y-Oy))])
+    pygame.draw.polygon(screen, purple, [xy(p1), xy(p2), xy((tipx+ADF_x-Origin_x, tipy+ADF_y-Origin_y))])
 
 def draw_arrow_RMI():
     length = 90
@@ -388,7 +440,7 @@ def draw_arrow_RMI():
     start = (0, 0)
 
     #draw line (convert to screen coordinates)
-    pygame.draw.line(screen, purple, xy((-tipx + RMI_x-Ox, -tipy + RMI_y-Oy)), xy((tipx + RMI_x-Ox, tipy + RMI_y-Oy)), width = 3)
+    pygame.draw.line(screen, purple, xy((-tipx + RMI_x-Origin_x, -tipy + RMI_y-Origin_y)), xy((tipx + RMI_x-Origin_x, tipy + RMI_y-Origin_y)), width = 3)
     # Calculate points for arrowhead
 
     #construct vertical arrow with tip at origin, then rotate and translate
@@ -405,11 +457,11 @@ def draw_arrow_RMI():
     p2 = rotate(p2, (0,0), theta)
 
     #translate
-    p1 = (p1[0] + tip[0] + RMI_x-Ox, p1[1] + tip[1] +RMI_y-Oy)
-    p2 = (p2[0] + tip[0] + RMI_x-Ox, p2[1] + tip[1] +RMI_y-Oy)
+    p1 = (p1[0] + tip[0] + RMI_x-Origin_x, p1[1] + tip[1] +RMI_y-Origin_y)
+    p2 = (p2[0] + tip[0] + RMI_x-Origin_x, p2[1] + tip[1] +RMI_y-Origin_y)
 
     # Draw the arrowhead (convert to screen coordinates)
-    pygame.draw.polygon(screen, purple, [xy(p1), xy(p2), xy((tipx+RMI_x-Ox, tipy+RMI_y-Oy))])
+    pygame.draw.polygon(screen, purple, [xy(p1), xy(p2), xy((tipx+RMI_x-Origin_x, tipy+RMI_y-Origin_y))])
 
 
 def dotproduct(a, b):
@@ -552,7 +604,7 @@ def take_screenshot():
     pygame.image.save(screen, screenshot_path)
     print("Screenshot saved as:", screenshot_path)
 
-def process_radial_text(s):
+def process_deg_text(s):
     #return numbers using regex
     pattern = r'\d+'
     match = re.search(pattern, s)
@@ -594,7 +646,7 @@ def draw_plane(rotation):
 def draw_hsi():
     # Draw radials
     r1 = 120
-    pygame.draw.line(screen, red, xy((HSI_x-Ox,r1+HSI_y-Oy)), xy((HSI_x-Ox,r1+7+HSI_y-Oy)), width = 5)
+    pygame.draw.line(screen, red, xy((HSI_x-Origin_x,r1+HSI_y-Origin_y)), xy((HSI_x-Origin_x,r1+7+HSI_y-Origin_y)), width = 5)
     for i in range(72):
         theta = mod360(i * 5)
 
@@ -607,27 +659,27 @@ def draw_hsi():
 
         angle = theta - HEADING
         
-        start = (xcomp(r1, angle) + HSI_x - Ox, ycomp(r1, angle) + HSI_y - Oy)
-        end = (xcomp(r2, angle) + HSI_x - Ox, ycomp(r2, angle) + HSI_y - Oy)
+        start = (xcomp(r1, angle) + HSI_x - Origin_x, ycomp(r1, angle) + HSI_y - Origin_y)
+        end = (xcomp(r2, angle) + HSI_x - Origin_x, ycomp(r2, angle) + HSI_y - Origin_y)
         pygame.draw.line(screen, black, xy(start), xy(end))
 
         if theta % 30 == 0:
             r3 = r1 + 10 # spacing for text
-            textstart = (xcomp(r3, angle) + HSI_x - Ox, ycomp(r3, angle) + HSI_y - Oy)
+            textstart = (xcomp(r3, angle) + HSI_x - Origin_x, ycomp(r3, angle) + HSI_y - Origin_y)
 
             img = myFont.render(str(int(theta/10)), True, black)
             img = pygame.transform.rotate(img, -angle)
             text_rect = img.get_rect(center = xy(textstart))
             screen.blit(img, text_rect)
     title = myFont.render("HSI", True, black)
-    title_rect = title.get_rect(center = xy((HSI_x-Ox, HSI_y-Oy + 150)))
+    title_rect = title.get_rect(center = xy((HSI_x-Origin_x, HSI_y-Origin_y + 150)))
     screen.blit(title,title_rect)
 
 #need to draw fixed card adf, which always gives relative bearing to vor/ndb
 
 def draw_fcadf():
     r1 = 120
-    pygame.draw.line(screen, red, xy((ADF_x-Ox,r1+ADF_y-Oy)), xy((ADF_x-Ox,r1+7+ADF_y-Oy)), width = 5)
+    pygame.draw.line(screen, red, xy((ADF_x-Origin_x,r1+ADF_y-Origin_y)), xy((ADF_x-Origin_x,r1+7+ADF_y-Origin_y)), width = 5)
     # draw radials
     for i in range(72):
         theta = mod360(i * 5)
@@ -641,26 +693,26 @@ def draw_fcadf():
 
         angle = theta
         
-        start = (xcomp(r1, angle) + ADF_x - Ox, ycomp(r1, angle) + ADF_y - Oy)
-        end = (xcomp(r2, angle) + ADF_x - Ox, ycomp(r2, angle) + ADF_y - Oy)
+        start = (xcomp(r1, angle) + ADF_x - Origin_x, ycomp(r1, angle) + ADF_y - Origin_y)
+        end = (xcomp(r2, angle) + ADF_x - Origin_x, ycomp(r2, angle) + ADF_y - Origin_y)
         pygame.draw.line(screen, black, xy(start), xy(end))
 
         if theta % 30 == 0:
             r3 = r1 + 10 # spacing for text
-            textstart = (xcomp(r3, angle) + ADF_x - Ox, ycomp(r3, angle) + ADF_y - Oy)
+            textstart = (xcomp(r3, angle) + ADF_x - Origin_x, ycomp(r3, angle) + ADF_y - Origin_y)
 
             img = myFont.render(str(int(theta/10)), True, black)
             img = pygame.transform.rotate(img, -angle)
             text_rect = img.get_rect(center = xy(textstart))
             screen.blit(img, text_rect)
-    title = myFont.render("F.C. ADF", True, black)
-    title_rect = title.get_rect(center = xy((ADF_x-Ox, ADF_y-Oy + 150)))
+    title = myFont.render("FIXED CARD ADF", True, black)
+    title_rect = title.get_rect(center = xy((ADF_x-Origin_x, ADF_y-Origin_y + 150)))
     screen.blit(title,title_rect)
     
 
 def draw_rmi():
     r1 = 120
-    pygame.draw.line(screen, red, xy((RMI_x-Ox,r1+RMI_y-Oy)), xy((RMI_x-Ox,r1+7+RMI_y-Oy)), width = 5)
+    pygame.draw.line(screen, red, xy((RMI_x-Origin_x,r1+RMI_y-Origin_y)), xy((RMI_x-Origin_x,r1+7+RMI_y-Origin_y)), width = 5)
     # Draw radials
     for i in range(72):
         theta = mod360(i * 5)
@@ -674,20 +726,20 @@ def draw_rmi():
 
         angle = theta - HEADING
         
-        start = (xcomp(r1, angle) + RMI_x - Ox, ycomp(r1, angle) + RMI_y - Oy)
-        end = (xcomp(r2, angle) + RMI_x - Ox, ycomp(r2, angle) + RMI_y - Oy)
+        start = (xcomp(r1, angle) + RMI_x - Origin_x, ycomp(r1, angle) + RMI_y - Origin_y)
+        end = (xcomp(r2, angle) + RMI_x - Origin_x, ycomp(r2, angle) + RMI_y - Origin_y)
         pygame.draw.line(screen, black, xy(start), xy(end))
 
         if theta % 30 == 0:
             r3 = r1 + 10 # spacing for text
-            textstart = (xcomp(r3, angle) + RMI_x-Ox, ycomp(r3, angle) + RMI_y-Oy)
+            textstart = (xcomp(r3, angle) + RMI_x-Origin_x, ycomp(r3, angle) + RMI_y-Origin_y)
 
             img = myFont.render(str(int(theta/10)), True, black)
             img = pygame.transform.rotate(img, -angle)
             text_rect = img.get_rect(center = xy(textstart))
             screen.blit(img, text_rect)
     title = myFont.render("RMI", True, black)
-    title_rect = title.get_rect(center = xy((RMI_x-Ox, RMI_y-Oy + 150)))
+    title_rect = title.get_rect(center = xy((RMI_x-Origin_x, RMI_y-Origin_y + 150)))
     screen.blit(title,title_rect)
 
 
@@ -852,10 +904,10 @@ def gameloop():
             #update angle
             Angletxt = str(ANGLE)
 
-        Radialtxt = process_radial_text(Radialtxt)
-        Coursetxt = process_radial_text(Coursetxt)
-        Angletxt = process_radial_text(Angletxt)
-        Tracktxt = process_radial_text(str(mod360(TRACK)))
+        Radialtxt = process_deg_text(Radialtxt)
+        Coursetxt = process_deg_text(Coursetxt)
+        Angletxt = process_deg_text(Angletxt)
+        Tracktxt = process_deg_text(str(mod360(TRACK)))
 
         # Clear the screen
         screen.fill(white)
@@ -898,7 +950,7 @@ def gameloop():
         line_len = 270
 
         # bearing from/to stn
-        draw_arrow(RADIAL, arrow_len, False, True, red, "BFS", 3)
+        draw_arrow_map(RADIAL, arrow_len, False, True, red, "BFS", 3)
         draw_arrow(RADIAL, line_len, False, False, red, "", 1)
         draw_arrow(mod360(RADIAL + 180), arrow_len, False, True, green, "BTS", 3)
         draw_arrow(RADIAL + 180, line_len, False, False, green, "", 1)
@@ -922,8 +974,6 @@ def gameloop():
         # Update the display
         pygame.display.flip()
 
-        
-
         # Cap the frame rate
         clock.tick(60)
 
@@ -932,4 +982,10 @@ if __name__ == "__main__":
     gameloop()
 
 
-#test
+#to do:
+# - HSI - cutout XTE and turn whole thing green
+# - change RMI needles to look like RMI (double arrow tail, etc.)
+# - Make map square, take out intercepts
+# - bearing to station, bearing from station, linked to A/C position on map (e.g. as GPS readout)
+# - instrument colours = black background (ADF needles are white)
+
